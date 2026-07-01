@@ -555,6 +555,209 @@ void cos1_pre_pos_processor::post_backward(cudaStream_t stream, int length, prec
     cos1_post_backward_kernel<<<grid, threads, 0, stream>>>(length, fft_result, result);
 }
 
+
+// DST-I (RODFT00)
+template<typename scalar_type>
+__global__ void sin1_pre_forward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind == 0){
+        fft_signal[0] = 0.0;
+        fft_signal[N+1] = 0.0;
+    }
+    if (ind < N) {
+        fft_signal[ind+1] = input[ind];
+        fft_signal[2*N+1-ind] = -input[ind];
+    }
+}
+template<typename scalar_type>
+__global__ void sin1_post_forward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        result[ind] = -fft_signal[2*(ind+1)+1];
+    }
+}
+template<typename scalar_type>
+__global__ void sin1_pre_backward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind == 0){
+        fft_signal[0] = 0.0;
+        fft_signal[1] = 0.0;
+        fft_signal[2*(N+1)] = 0.0;
+        fft_signal[2*(N+1)+1] = 0.0;
+    }
+    if (ind < N) {
+        fft_signal[2*(ind+1)] = 0.0;
+        fft_signal[2*(ind+1)+1] = -input[ind];
+    }
+}
+template<typename scalar_type>
+__global__ void sin1_post_backward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        result[ind] = fft_signal[ind+1];
+    }
+}
+
+// DCT-IV (REDFT11)
+template<typename scalar_type>
+__global__ void cos4_pre_forward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        fft_signal[2*ind] = 0.0;
+        fft_signal[2*N + 2*ind] = 0.0;
+        fft_signal[2*ind+1] = input[ind];
+        fft_signal[4*N - 2*ind - 1] = input[ind];
+        fft_signal[2*N - 2*ind - 1] = -input[ind];
+        fft_signal[2*N + 2*ind + 1] = -input[ind];
+    }
+}
+template<typename scalar_type>
+__global__ void cos4_post_forward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        result[ind] = fft_signal[2*(2*ind+1)];
+    }
+}
+template<typename scalar_type>
+__global__ void cos4_pre_backward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        fft_signal[2*(2*ind)] = 0.0;
+        fft_signal[2*(2*ind)+1] = 0.0;
+        fft_signal[2*(2*ind+1)] = input[ind];
+        fft_signal[2*(2*ind+1)+1] = 0.0;
+    }
+    if (ind == 0) {
+        fft_signal[4*N] = 0.0;
+        fft_signal[4*N+1] = 0.0;
+    }
+}
+template<typename scalar_type>
+__global__ void cos4_post_backward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        result[ind] = fft_signal[2*ind+1];
+    }
+}
+
+// DST-IV (RODFT11)
+template<typename scalar_type>
+__global__ void sin4_pre_forward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        fft_signal[2*ind] = 0.0;
+        fft_signal[2*N + 2*ind] = 0.0;
+        fft_signal[2*ind+1] = input[ind];
+        fft_signal[4*N - 2*ind - 1] = -input[ind];
+        fft_signal[2*N - 2*ind - 1] = input[ind];
+        fft_signal[2*N + 2*ind + 1] = -input[ind];
+    }
+}
+template<typename scalar_type>
+__global__ void sin4_post_forward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        result[ind] = -fft_signal[2*(2*ind+1)+1];
+    }
+}
+template<typename scalar_type>
+__global__ void sin4_pre_backward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        fft_signal[2*(2*ind)] = 0.0;
+        fft_signal[2*(2*ind)+1] = 0.0;
+        fft_signal[2*(2*ind+1)] = 0.0;
+        fft_signal[2*(2*ind+1)+1] = -input[ind];
+    }
+    if (ind == 0) {
+        fft_signal[4*N] = 0.0;
+        fft_signal[4*N+1] = 0.0;
+    }
+}
+template<typename scalar_type>
+__global__ void sin4_post_backward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        result[ind] = fft_signal[2*ind+1];
+    }
+}
+
+template<typename precision>
+void sin1_pre_pos_processor::pre_forward(cudaStream_t stream, int length, precision const input[], precision fft_signal[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    sin1_pre_forward_kernel<<<grid, threads, 0, stream>>>(length, input, fft_signal);
+}
+template<typename precision>
+void sin1_pre_pos_processor::post_forward(cudaStream_t stream, int length, std::complex<precision> const fft_result[], precision result[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    sin1_post_forward_kernel<<<grid, threads, 0, stream>>>(length, reinterpret_cast<precision const*>(fft_result), result);
+}
+template<typename precision>
+void sin1_pre_pos_processor::pre_backward(cudaStream_t stream, int length, precision const input[], std::complex<precision> fft_signal[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    sin1_pre_backward_kernel<<<grid, threads, 0, stream>>>(length, input, reinterpret_cast<precision*>(fft_signal));
+}
+template<typename precision>
+void sin1_pre_pos_processor::post_backward(cudaStream_t stream, int length, precision const fft_result[], precision result[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    sin1_post_backward_kernel<<<grid, threads, 0, stream>>>(length, fft_result, result);
+}
+
+template<typename precision>
+void cos4_pre_pos_processor::pre_forward(cudaStream_t stream, int length, precision const input[], precision fft_signal[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    cos4_pre_forward_kernel<<<grid, threads, 0, stream>>>(length, input, fft_signal);
+}
+template<typename precision>
+void cos4_pre_pos_processor::post_forward(cudaStream_t stream, int length, std::complex<precision> const fft_result[], precision result[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    cos4_post_forward_kernel<<<grid, threads, 0, stream>>>(length, reinterpret_cast<precision const*>(fft_result), result);
+}
+template<typename precision>
+void cos4_pre_pos_processor::pre_backward(cudaStream_t stream, int length, precision const input[], std::complex<precision> fft_signal[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    cos4_pre_backward_kernel<<<grid, threads, 0, stream>>>(length, input, reinterpret_cast<precision*>(fft_signal));
+}
+template<typename precision>
+void cos4_pre_pos_processor::post_backward(cudaStream_t stream, int length, precision const fft_result[], precision result[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    cos4_post_backward_kernel<<<grid, threads, 0, stream>>>(length, fft_result, result);
+}
+
+template<typename precision>
+void sin4_pre_pos_processor::pre_forward(cudaStream_t stream, int length, precision const input[], precision fft_signal[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    sin4_pre_forward_kernel<<<grid, threads, 0, stream>>>(length, input, fft_signal);
+}
+template<typename precision>
+void sin4_pre_pos_processor::post_forward(cudaStream_t stream, int length, std::complex<precision> const fft_result[], precision result[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    sin4_post_forward_kernel<<<grid, threads, 0, stream>>>(length, reinterpret_cast<precision const*>(fft_result), result);
+}
+template<typename precision>
+void sin4_pre_pos_processor::pre_backward(cudaStream_t stream, int length, precision const input[], std::complex<precision> fft_signal[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    sin4_pre_backward_kernel<<<grid, threads, 0, stream>>>(length, input, reinterpret_cast<precision*>(fft_signal));
+}
+template<typename precision>
+void sin4_pre_pos_processor::post_backward(cudaStream_t stream, int length, precision const fft_result[], precision result[]){
+    dim3 threads( BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    sin4_post_backward_kernel<<<grid, threads, 0, stream>>>(length, fft_result, result);
+}
+
+
 #define heffte_instantiate_cos(precision) \
     template void cos_pre_pos_processor::pre_forward<precision>(cudaStream_t, int, precision const[], precision[]); \
     template void cos_pre_pos_processor::post_forward<precision>(cudaStream_t, int,  std::complex<precision> const[], precision[]); \
@@ -576,6 +779,34 @@ heffte_instantiate_cos(double)
 
 heffte_instantiate_cos1(float)
 heffte_instantiate_cos1(double)
+
+
+#define heffte_instantiate_sin1(precision)\
+    template void sin1_pre_pos_processor::pre_forward<precision>(cudaStream_t, int, precision const[], precision[]); \
+    template void sin1_pre_pos_processor::post_forward<precision>(cudaStream_t, int,  std::complex<precision> const[], precision[]); \
+    template void sin1_pre_pos_processor::pre_backward<precision>(cudaStream_t, int, precision const[], std::complex<precision>[]); \
+    template void sin1_pre_pos_processor::post_backward<precision>(cudaStream_t, int, precision const[], precision[]); \
+
+heffte_instantiate_sin1(float)
+heffte_instantiate_sin1(double)
+
+#define heffte_instantiate_cos4(precision)\
+    template void cos4_pre_pos_processor::pre_forward<precision>(cudaStream_t, int, precision const[], precision[]); \
+    template void cos4_pre_pos_processor::post_forward<precision>(cudaStream_t, int,  std::complex<precision> const[], precision[]); \
+    template void cos4_pre_pos_processor::pre_backward<precision>(cudaStream_t, int, precision const[], std::complex<precision>[]); \
+    template void cos4_pre_pos_processor::post_backward<precision>(cudaStream_t, int, precision const[], precision[]); \
+
+heffte_instantiate_cos4(float)
+heffte_instantiate_cos4(double)
+
+#define heffte_instantiate_sin4(precision)\
+    template void sin4_pre_pos_processor::pre_forward<precision>(cudaStream_t, int, precision const[], precision[]); \
+    template void sin4_pre_pos_processor::post_forward<precision>(cudaStream_t, int,  std::complex<precision> const[], precision[]); \
+    template void sin4_pre_pos_processor::pre_backward<precision>(cudaStream_t, int, precision const[], std::complex<precision>[]); \
+    template void sin4_pre_pos_processor::post_backward<precision>(cudaStream_t, int, precision const[], precision[]); \
+
+heffte_instantiate_sin4(float)
+heffte_instantiate_sin4(double)
 
 } // namespace cuda
 
