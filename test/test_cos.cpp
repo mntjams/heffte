@@ -124,6 +124,45 @@ void test_cross_reference(MPI_Comm comm){
     }
 }
 
+template<typename backend_tag, typename scalar_type>
+void test_inversion(MPI_Comm comm){
+    using tvector = typename heffte::fft3d<backend_tag>::template buffer_container<scalar_type>;
+
+    int const me = mpi::comm_rank(comm);
+    int const num_ranks = mpi::comm_size(comm);
+    assert(num_ranks == 1 or num_ranks == 2 or num_ranks == 4);
+    current_test<scalar_type, using_mpi, backend_tag> name(std::string("-np ") + std::to_string(num_ranks) + "  test inversion", comm);
+
+    box3d<> const world = {{0, 0, 0}, {1, 2, 3}};
+    std::vector<scalar_type> world_input(world.count());
+    std::iota(world_input.begin(), world_input.end(), 1.0);
+
+    std::vector<box3d<>> boxes = [&]()->std::vector<box3d<>>{
+            if (num_ranks == 1){
+                return heffte::split_world(world, std::array<int, 3>{1, 1, 1});
+            }else if (num_ranks == 2){
+                return heffte::split_world(world, std::array<int, 3>{2, 1, 1});
+            }else{
+                return heffte::split_world(world, std::array<int, 3>{1, 2, 2});
+            }
+        }();
+    assert(boxes.size() == static_cast<size_t>(num_ranks));
+    auto local_input = input_maker<backend_tag, scalar_type>::select(world, boxes[me], world_input);
+    auto reference_inv = get_subbox(world, boxes[me], world_input);
+
+    for(auto const options : make_all_options<backend_tag>()){
+        if (not options.use_pencils) continue;
+        heffte::rtransform<backend_tag> trans_cos(boxes[me], boxes[me], comm, options);
+        tvector forward(trans_cos.size_outbox());
+
+        trans_cos.forward(local_input.data(), forward.data());
+
+        tvector inverse(trans_cos.size_inbox());
+        trans_cos.backward(forward.data(), inverse.data(), heffte::scale::full);
+        tassert(approx(inverse, reference_inv, (std::is_same<scalar_type, float>::value) ? 0.001 : 1.0));
+    }
+}
+
 
 void perform_tests(MPI_Comm const comm){
     all_tests<> name("cosine transforms");
@@ -162,6 +201,15 @@ void perform_tests(MPI_Comm const comm){
     test_cosine_transform<backend::cufft_sin, double>(comm);
     test_cosine_transform<backend::cufft_cos1, float>(comm);
     test_cosine_transform<backend::cufft_cos1, double>(comm);
+    check_cpu_compile_types<backend::cufft_sin1>();
+    check_cpu_compile_types<backend::cufft_cos4>();
+    check_cpu_compile_types<backend::cufft_sin4>();
+    test_inversion<backend::cufft_sin1, float>(comm);
+    test_inversion<backend::cufft_sin1, double>(comm);
+    test_inversion<backend::cufft_cos4, float>(comm);
+    test_inversion<backend::cufft_cos4, double>(comm);
+    test_inversion<backend::cufft_sin4, float>(comm);
+    test_inversion<backend::cufft_sin4, double>(comm);
     #ifdef Heffte_ENABLE_FFTW
     test_cross_reference<backend::fftw_cos, backend::cufft_cos, float, 10, 11, 12>(comm);
     test_cross_reference<backend::fftw_cos, backend::cufft_cos, double, 3, 8, 5>(comm);
