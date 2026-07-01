@@ -601,14 +601,17 @@ __global__ void sin1_post_backward_kernel(int N, scalar_type const *fft_signal, 
 // DCT-IV (REDFT11)
 template<typename scalar_type>
 __global__ void cos4_pre_forward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
-    int ind = blockIdx.x*BLK_X + threadIdx.x;
-    if (ind < N) {
-        fft_signal[2*ind] = 0.0;
-        fft_signal[2*N + 2*ind] = 0.0;
-        fft_signal[2*ind+1] = input[ind];
-        fft_signal[4*N - 2*ind - 1] = input[ind];
-        fft_signal[2*N - 2*ind - 1] = -input[ind];
-        fft_signal[2*N + 2*ind + 1] = -input[ind];
+    int j = blockIdx.x*BLK_X + threadIdx.x;
+    if (j < 8*N) {
+        if (j % 2 == 0) {
+            fft_signal[j] = 0.0;
+        } else {
+            int m = (j - 1) / 2;
+            if (m < N) fft_signal[j] = input[m];
+            else if (m < 2*N) fft_signal[j] = -input[2*N - m - 1];
+            else if (m < 3*N) fft_signal[j] = -input[m - 2*N];
+            else fft_signal[j] = input[4*N - m - 1];
+        }
     }
 }
 template<typename scalar_type>
@@ -620,16 +623,16 @@ __global__ void cos4_post_forward_kernel(int N, scalar_type const *fft_signal, s
 }
 template<typename scalar_type>
 __global__ void cos4_pre_backward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
-    int ind = blockIdx.x*BLK_X + threadIdx.x;
-    if (ind < N) {
-        fft_signal[2*(2*ind)] = 0.0;
-        fft_signal[2*(2*ind)+1] = 0.0;
-        fft_signal[2*(2*ind+1)] = input[ind];
-        fft_signal[2*(2*ind+1)+1] = 0.0;
-    }
-    if (ind == 0) {
-        fft_signal[4*N] = 0.0;
-        fft_signal[4*N+1] = 0.0;
+    int j = blockIdx.x*BLK_X + threadIdx.x;
+    if (j < 4*N + 1) {
+        fft_signal[2*j] = 0.0;
+        fft_signal[2*j+1] = 0.0;
+        if (j % 2 != 0) {
+            int k = (j - 1) / 2;
+            if (k < N) {
+                fft_signal[2*j] = input[k];
+            }
+        }
     }
 }
 template<typename scalar_type>
@@ -643,14 +646,17 @@ __global__ void cos4_post_backward_kernel(int N, scalar_type const *fft_signal, 
 // DST-IV (RODFT11)
 template<typename scalar_type>
 __global__ void sin4_pre_forward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
-    int ind = blockIdx.x*BLK_X + threadIdx.x;
-    if (ind < N) {
-        fft_signal[2*ind] = 0.0;
-        fft_signal[2*N + 2*ind] = 0.0;
-        fft_signal[2*ind+1] = input[ind];
-        fft_signal[4*N - 2*ind - 1] = -input[ind];
-        fft_signal[2*N - 2*ind - 1] = input[ind];
-        fft_signal[2*N + 2*ind + 1] = -input[ind];
+    int j = blockIdx.x*BLK_X + threadIdx.x;
+    if (j < 8*N) {
+        if (j % 2 == 0) {
+            fft_signal[j] = 0.0;
+        } else {
+            int m = (j - 1) / 2;
+            if (m < N) fft_signal[j] = input[m];
+            else if (m < 2*N) fft_signal[j] = input[2*N - m - 1];
+            else if (m < 3*N) fft_signal[j] = -input[m - 2*N];
+            else fft_signal[j] = -input[4*N - m - 1];
+        }
     }
 }
 template<typename scalar_type>
@@ -662,23 +668,23 @@ __global__ void sin4_post_forward_kernel(int N, scalar_type const *fft_signal, s
 }
 template<typename scalar_type>
 __global__ void sin4_pre_backward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
-    int ind = blockIdx.x*BLK_X + threadIdx.x;
-    if (ind < N) {
-        fft_signal[2*(2*ind)] = 0.0;
-        fft_signal[2*(2*ind)+1] = 0.0;
-        fft_signal[2*(2*ind+1)] = 0.0;
-        fft_signal[2*(2*ind+1)+1] = -input[ind];
-    }
-    if (ind == 0) {
-        fft_signal[4*N] = 0.0;
-        fft_signal[4*N+1] = 0.0;
+    int j = blockIdx.x*BLK_X + threadIdx.x;
+    if (j < 4*N + 1) {
+        fft_signal[2*j] = 0.0;
+        fft_signal[2*j+1] = 0.0;
+        if (j % 2 != 0) {
+            int k = (j - 1) / 2;
+            if (k < N) {
+                fft_signal[2*j+1] = input[k];
+            }
+        }
     }
 }
 template<typename scalar_type>
 __global__ void sin4_post_backward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
     if (ind < N) {
-        result[ind] = fft_signal[2*ind+1];
+        result[ind] = -fft_signal[2*ind+1];
     }
 }
 
@@ -710,7 +716,7 @@ void sin1_pre_pos_processor::post_backward(cudaStream_t stream, int length, prec
 template<typename precision>
 void cos4_pre_pos_processor::pre_forward(cudaStream_t stream, int length, precision const input[], precision fft_signal[]){
     dim3 threads( BLK_X, 1 );
-    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    dim3 grid( (8 * length + BLK_X-1)/BLK_X, 1 );
     cos4_pre_forward_kernel<<<grid, threads, 0, stream>>>(length, input, fft_signal);
 }
 template<typename precision>
@@ -722,7 +728,7 @@ void cos4_pre_pos_processor::post_forward(cudaStream_t stream, int length, std::
 template<typename precision>
 void cos4_pre_pos_processor::pre_backward(cudaStream_t stream, int length, precision const input[], std::complex<precision> fft_signal[]){
     dim3 threads( BLK_X, 1 );
-    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    dim3 grid( (4 * length + 1 + BLK_X-1)/BLK_X, 1 );
     cos4_pre_backward_kernel<<<grid, threads, 0, stream>>>(length, input, reinterpret_cast<precision*>(fft_signal));
 }
 template<typename precision>
@@ -735,7 +741,7 @@ void cos4_pre_pos_processor::post_backward(cudaStream_t stream, int length, prec
 template<typename precision>
 void sin4_pre_pos_processor::pre_forward(cudaStream_t stream, int length, precision const input[], precision fft_signal[]){
     dim3 threads( BLK_X, 1 );
-    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    dim3 grid( (8 * length + BLK_X-1)/BLK_X, 1 );
     sin4_pre_forward_kernel<<<grid, threads, 0, stream>>>(length, input, fft_signal);
 }
 template<typename precision>
@@ -747,7 +753,7 @@ void sin4_pre_pos_processor::post_forward(cudaStream_t stream, int length, std::
 template<typename precision>
 void sin4_pre_pos_processor::pre_backward(cudaStream_t stream, int length, precision const input[], std::complex<precision> fft_signal[]){
     dim3 threads( BLK_X, 1 );
-    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
+    dim3 grid( (4 * length + 1 + BLK_X-1)/BLK_X, 1 );
     sin4_pre_backward_kernel<<<grid, threads, 0, stream>>>(length, input, reinterpret_cast<precision*>(fft_signal));
 }
 template<typename precision>

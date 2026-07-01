@@ -186,7 +186,7 @@ namespace cuda {
         template<typename precision> static void post_forward(cudaStream_t, int length, std::complex<precision> const fft_result[], precision result[]);
         template<typename precision> static void pre_backward(cudaStream_t, int length, precision const input[], std::complex<precision> fft_signal[]);
         template<typename precision> static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
-        static int compute_extended_length(int length){ return 4 * length; }
+        static int compute_extended_length(int length){ return 8 * length; }
     };
 
     struct sin4_pre_pos_processor{
@@ -194,7 +194,7 @@ namespace cuda {
         template<typename precision> static void post_forward(cudaStream_t, int length, std::complex<precision> const fft_result[], precision result[]);
         template<typename precision> static void pre_backward(cudaStream_t, int length, precision const input[], std::complex<precision> fft_signal[]);
         template<typename precision> static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
-        static int compute_extended_length(int length){ return 4 * length; }
+        static int compute_extended_length(int length){ return 8 * length; }
     };
 
 }
