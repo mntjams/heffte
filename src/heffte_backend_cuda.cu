@@ -377,10 +377,10 @@ __global__ void cos4_pre_forward_kernel(int N, scalar_type const *input, scalar_
             fft_signal[j] = 0.0;
         } else {
             int m = (j - 1) / 2;
-            if (m < N) fft_signal[j] = input[m];
-            else if (m < 2*N) fft_signal[j] = -input[2*N - m - 1];
-            else if (m < 3*N) fft_signal[j] = -input[m - 2*N];
-            else fft_signal[j] = input[4*N - m - 1];
+            if (m < N) fft_signal[j] = 0.5 * input[m];
+            else if (m < 2*N) fft_signal[j] = -0.5 * input[2*N - m - 1];
+            else if (m < 3*N) fft_signal[j] = -0.5 * input[m - 2*N];
+            else fft_signal[j] = 0.5 * input[4*N - m - 1];
         }
     }
 }
@@ -422,10 +422,10 @@ __global__ void sin4_pre_forward_kernel(int N, scalar_type const *input, scalar_
             fft_signal[j] = 0.0;
         } else {
             int m = (j - 1) / 2;
-            if (m < N) fft_signal[j] = input[m];
-            else if (m < 2*N) fft_signal[j] = input[2*N - m - 1];
-            else if (m < 3*N) fft_signal[j] = -input[m - 2*N];
-            else fft_signal[j] = -input[4*N - m - 1];
+            if (m < N) fft_signal[j] = 0.5 * input[m];
+            else if (m < 2*N) fft_signal[j] = 0.5 * input[2*N - m - 1];
+            else if (m < 3*N) fft_signal[j] = -0.5 * input[m - 2*N];
+            else fft_signal[j] = -0.5 * input[4*N - m - 1];
         }
     }
 }
