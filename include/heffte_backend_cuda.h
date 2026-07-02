@@ -154,6 +154,10 @@ namespace cuda {
         }
     };
 
+    /*!
+     * \ingroup hefftecuda
+     * \brief Implementation of Cosine Transform type 1 pre-post processing methods using CUDA.
+     */
     struct cos1_pre_pos_processor{
         //! \brief Pre-process in the forward transform.
         template<typename precision>
@@ -173,28 +177,73 @@ namespace cuda {
         }
     };
 
+    /*!
+     * \ingroup hefftecuda
+     * \brief Implementation of Sine Transform type 1 pre-post processing methods using CUDA.
+     */
     struct sin1_pre_pos_processor{
-        template<typename precision> static void pre_forward(cudaStream_t, int length, precision const input[], precision fft_signal[]);
-        template<typename precision> static void post_forward(cudaStream_t, int length, std::complex<precision> const fft_result[], precision result[]);
-        template<typename precision> static void pre_backward(cudaStream_t, int length, precision const input[], std::complex<precision> fft_signal[]);
-        template<typename precision> static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
-        static int compute_extended_length(int length){ return 2 * ( length+1 ); }
+        //! \brief Pre-process in the forward transform.
+        template<typename precision>
+        static void pre_forward(cudaStream_t, int length, precision const input[], precision fft_signal[]);
+        //! \brief Post-process in the forward transform.
+        template<typename precision>
+        static void post_forward(cudaStream_t, int length, std::complex<precision> const fft_result[], precision result[]);
+        //! \brief Pre-process in the inverse transform.
+        template<typename precision>
+        static void pre_backward(cudaStream_t, int length, precision const input[], std::complex<precision> fft_signal[]);
+        //! \brief Post-process in the inverse transform.
+        template<typename precision>
+        static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
+        //! \brief Computes the length of the extended signal.
+        static int compute_extended_length(int length){
+            return 2 * ( length+1 );
+        }
     };
 
+    /*!
+     * \ingroup hefftecuda
+     * \brief Implementation of Cosine Transform type 4 pre-post processing methods using CUDA.
+     */
     struct cos4_pre_pos_processor{
-        template<typename precision> static void pre_forward(cudaStream_t, int length, precision const input[], precision fft_signal[]);
-        template<typename precision> static void post_forward(cudaStream_t, int length, std::complex<precision> const fft_result[], precision result[]);
-        template<typename precision> static void pre_backward(cudaStream_t, int length, precision const input[], std::complex<precision> fft_signal[]);
-        template<typename precision> static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
-        static int compute_extended_length(int length){ return 8 * length; }
+        //! \brief Pre-process in the forward transform.
+        template<typename precision>
+        static void pre_forward(cudaStream_t, int length, precision const input[], precision fft_signal[]);
+        //! \brief Post-process in the forward transform.
+        template<typename precision>
+        static void post_forward(cudaStream_t, int length, std::complex<precision> const fft_result[], precision result[]);
+        //! \brief Pre-process in the inverse transform.
+        template<typename precision>
+        static void pre_backward(cudaStream_t, int length, precision const input[], std::complex<precision> fft_signal[]);
+        //! \brief Post-process in the inverse transform.
+        template<typename precision>
+        static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
+        //! \brief Computes the length of the extended signal.
+        static int compute_extended_length(int length){
+            return 8 * length;
+        }
     };
 
+    /*!
+     * \ingroup hefftecuda
+     * \brief Implementation of Sine Transform type 4 pre-post processing methods using CUDA.
+     */
     struct sin4_pre_pos_processor{
-        template<typename precision> static void pre_forward(cudaStream_t, int length, precision const input[], precision fft_signal[]);
-        template<typename precision> static void post_forward(cudaStream_t, int length, std::complex<precision> const fft_result[], precision result[]);
-        template<typename precision> static void pre_backward(cudaStream_t, int length, precision const input[], std::complex<precision> fft_signal[]);
-        template<typename precision> static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
-        static int compute_extended_length(int length){ return 8 * length; }
+        //! \brief Pre-process in the forward transform.
+        template<typename precision>
+        static void pre_forward(cudaStream_t, int length, precision const input[], precision fft_signal[]);
+        //! \brief Post-process in the forward transform.
+        template<typename precision>
+        static void post_forward(cudaStream_t, int length, std::complex<precision> const fft_result[], precision result[]);
+        //! \brief Pre-process in the inverse transform.
+        template<typename precision>
+        static void pre_backward(cudaStream_t, int length, precision const input[], std::complex<precision> fft_signal[]);
+        //! \brief Post-process in the inverse transform.
+        template<typename precision>
+        static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
+        //! \brief Computes the length of the extended signal.
+        static int compute_extended_length(int length){
+            return 8 * length;
+        }
     };
 
 }
@@ -216,9 +265,25 @@ namespace backend{
      */
     template<> struct is_enabled<cufft_sin> : std::true_type{};
 
+    /*!
+     * \ingroup hefftecuda
+     * \brief Indicate that the cuFFT backend has been enabled for Cosine Transform type 1.
+     */
     template<> struct is_enabled<cufft_cos1> : std::true_type{};
+    /*!
+     * \ingroup hefftecuda
+     * \brief Indicate that the cuFFT backend has been enabled for Sine Transform type 1.
+     */
     template<> struct is_enabled<cufft_sin1> : std::true_type{};
+    /*!
+     * \ingroup hefftecuda
+     * \brief Indicate that the cuFFT backend has been enabled for Cosine Transform type 4.
+     */
     template<> struct is_enabled<cufft_cos4> : std::true_type{};
+    /*!
+     * \ingroup hefftecuda
+     * \brief Indicate that the cuFFT backend has been enabled for Sine Transform type 4.
+     */
     template<> struct is_enabled<cufft_sin4> : std::true_type{};
 
     /*!
@@ -344,6 +409,10 @@ namespace backend{
         template<typename T> using container = heffte::gpu::device_vector<T, data_manipulator<tag::gpu>>;
     };
 
+    /*!
+     * \ingroup hefftecuda
+     * \brief Defines the location type-tag and the cuda container.
+     */
     template<>
     struct buffer_traits<cufft_cos1>{
         //! \brief The cufft library uses data on the gpu device.
@@ -351,19 +420,37 @@ namespace backend{
         //! \brief The data is managed by the cuda vector container.
         template<typename T> using container = heffte::gpu::device_vector<T, data_manipulator<tag::gpu>>;
     };
+    /*!
+     * \ingroup hefftecuda
+     * \brief Defines the location type-tag and the cuda container.
+     */
     template<>
     struct buffer_traits<cufft_sin1>{
+        //! \brief The cufft library uses data on the gpu device.
         using location = tag::gpu;
+        //! \brief The data is managed by the cuda vector container.
         template<typename T> using container = heffte::gpu::device_vector<T, data_manipulator<tag::gpu>>;
     };
+    /*!
+     * \ingroup hefftecuda
+     * \brief Defines the location type-tag and the cuda container.
+     */
     template<>
     struct buffer_traits<cufft_cos4>{
+        //! \brief The cufft library uses data on the gpu device.
         using location = tag::gpu;
+        //! \brief The data is managed by the cuda vector container.
         template<typename T> using container = heffte::gpu::device_vector<T, data_manipulator<tag::gpu>>;
     };
+    /*!
+     * \ingroup hefftecuda
+     * \brief Defines the location type-tag and the cuda container.
+     */
     template<>
     struct buffer_traits<cufft_sin4>{
+        //! \brief The cufft library uses data on the gpu device.
         using location = tag::gpu;
+        //! \brief The data is managed by the cuda vector container.
         template<typename T> using container = heffte::gpu::device_vector<T, data_manipulator<tag::gpu>>;
     };
 }
@@ -830,20 +917,52 @@ template<> struct one_dim_backend<backend::cufft_sin>{
     using executor_r2c = void;
 };
 
+/*!
+ * \ingroup hefftecuda
+ * \brief Helper struct that defines the types and creates instances of one-dimensional executors.
+ *
+ * The struct is specialized for each backend.
+ */
 template<> struct one_dim_backend<backend::cufft_cos1>{
+    //! \brief Defines the complex-to-complex executor.
     using executor = real2real_executor<backend::cufft, cuda::cos1_pre_pos_processor>;
+    //! \brief Defines the real-to-complex executor.
     using executor_r2c = void;
 };
+/*!
+ * \ingroup hefftecuda
+ * \brief Helper struct that defines the types and creates instances of one-dimensional executors.
+ *
+ * The struct is specialized for each backend.
+ */
 template<> struct one_dim_backend<backend::cufft_sin1>{
+    //! \brief Defines the complex-to-complex executor.
     using executor = real2real_executor<backend::cufft, cuda::sin1_pre_pos_processor>;
+    //! \brief Defines the real-to-complex executor.
     using executor_r2c = void;
 };
+/*!
+ * \ingroup hefftecuda
+ * \brief Helper struct that defines the types and creates instances of one-dimensional executors.
+ *
+ * The struct is specialized for each backend.
+ */
 template<> struct one_dim_backend<backend::cufft_cos4>{
+    //! \brief Defines the complex-to-complex executor.
     using executor = real2real_executor<backend::cufft, cuda::cos4_pre_pos_processor>;
+    //! \brief Defines the real-to-complex executor.
     using executor_r2c = void;
 };
+/*!
+ * \ingroup hefftecuda
+ * \brief Helper struct that defines the types and creates instances of one-dimensional executors.
+ *
+ * The struct is specialized for each backend.
+ */
 template<> struct one_dim_backend<backend::cufft_sin4>{
+    //! \brief Defines the complex-to-complex executor.
     using executor = real2real_executor<backend::cufft, cuda::sin4_pre_pos_processor>;
+    //! \brief Defines the real-to-complex executor.
     using executor_r2c = void;
 };
 
@@ -917,6 +1036,10 @@ template<> struct default_plan_options<backend::cufft_cos>{
     //! \brief The reshape operations will not transpose the data.
     static const bool use_reorder = true;
 };
+/*!
+ * \ingroup hefftecuda
+ * \brief Sets the default options for the cufft backend.
+ */
 template<> struct default_plan_options<backend::cufft_cos1>{
     //! \brief The reshape operations will not transpose the data.
     static const bool use_reorder = true;
@@ -929,13 +1052,28 @@ template<> struct default_plan_options<backend::cufft_sin>{
     //! \brief The reshape operations will not transpose the data.
     static const bool use_reorder = true;
 };
+/*!
+ * \ingroup hefftecuda
+ * \brief Sets the default options for the cufft backend.
+ */
 template<> struct default_plan_options<backend::cufft_sin1>{
+    //! \brief The reshape operations will not transpose the data.
     static const bool use_reorder = true;
 };
+/*!
+ * \ingroup hefftecuda
+ * \brief Sets the default options for the cufft backend.
+ */
 template<> struct default_plan_options<backend::cufft_cos4>{
+    //! \brief The reshape operations will not transpose the data.
     static const bool use_reorder = true;
 };
+/*!
+ * \ingroup hefftecuda
+ * \brief Sets the default options for the cufft backend.
+ */
 template<> struct default_plan_options<backend::cufft_sin4>{
+    //! \brief The reshape operations will not transpose the data.
     static const bool use_reorder = true;
 };
 
