@@ -48,8 +48,12 @@ void test_cosine_transform(MPI_Comm comm){
         } else if (std::is_same<backend_tag, backend::fftw_cos1>::value or std::is_same<backend_tag, backend::cufft_cos1>::value
                     or std::is_same<backend_tag, backend::rocfft_cos1>::value or std::is_same<backend_tag, backend::stock_cos1>::value) {
             return std::vector<scalar_type>{600.0, -24.0, -48.0, 0.0, 0.0, 0.0, -192.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -48.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-        } else if (std::is_same<backend_tag, backend::fftw_sin1>::value or std::is_same<backend_tag, backend::cufft_sin1) {
+        } else if (std::is_same<backend_tag, backend::fftw_sin1>::value or std::is_same<backend_tag, backend::cufft_sin1>::value) {
             return std::vector<scalar_type>{1.2869458511849268e+03, -5.1477834047397081e+01, -1.7058253619218675e+02, 0.0, 2.2080499998375967e+02, -8.8321999993503919e+00, -6.9064761758659802e+02, 0.0, -5.1623951549498826e-15, 0.0, -1.1849639753652639e+02, 0.0, 3.0380670424097087e+02, -1.2152268169638841e+01, -4.0269074315674175e+01, 0.0, 5.2124989768007239e+01, -2.0849995907202907e+00, -1.6303978624871638e+02, 0.0, -2.1868256803083264e-14, 0.0, -2.7973204907458850e+01, 0.0};
+        } else if (std::is_same<backend_tag, backend::cufft_cos4>::value) {
+            return std::vector<scalar_type>{4.3879735432578536e+02, -2.1207152193151344e+02, -2.5024832918360423e+02, 1.1475257067163282e+02, 1.6561190802821321e+02, -7.6721767506957860e+01, -5.0976289413385587e+02, 2.2179616484344294e+02, 2.1806262076259060e+02, -9.4221003943971724e+01, -1.5345873538971910e+02, 6.6417132006713572e+01, 2.6175324663320089e+02, -1.1553481404666618e+02, -1.1684023034937820e+02, 5.1000372102725777e+01, 8.1407528304326291e+01, -3.5626043476494623e+01, -2.4868156235008976e+02, 1.0903744481335936e+02, 1.0885374684404778e+02, -4.7295893292195622e+01, -7.6189079986704940e+01, 3.3174329142516392e+01};
+        } else if (std::is_same<backend_tag, backend::cufft_sin4>::value) {
+            return std::vector<scalar_type>{8.5500635505819423e+02, 3.2383952154394927e+02, 2.2331669596147140e+02, 8.1404485409013247e+01, 1.8106175106561503e+02, 6.6875163807212616e+01, -5.5439448981825763e+01, -3.3609232157403127e+01, -5.1768698302081518e+01, -2.5339805920609031e+01, -3.1723135158707130e+01, -1.5992595367399158e+01, 4.1815974123285770e+01, 1.0207674309702655e+01, -5.7261837454577638e+00, -4.9754270292257976e+00, -6.6400755680453366e-02, -1.9334452671257427e+00, 8.6719964080606520e+00, -2.4381104507522422e+00, -1.4655806584233554e+01, -8.2778288889699887e+00, -7.2314017481830870e+00, -4.6111235863605877e+00};
         }
     }();
 
@@ -124,45 +128,6 @@ void test_cross_reference(MPI_Comm comm){
     }
 }
 
-template<typename backend_tag, typename scalar_type>
-void test_inversion(MPI_Comm comm){
-    using tvector = typename heffte::fft3d<backend_tag>::template buffer_container<scalar_type>;
-
-    int const me = mpi::comm_rank(comm);
-    int const num_ranks = mpi::comm_size(comm);
-    assert(num_ranks == 1 or num_ranks == 2 or num_ranks == 4);
-    current_test<scalar_type, using_mpi, backend_tag> name(std::string("-np ") + std::to_string(num_ranks) + "  test inversion", comm);
-
-    box3d<> const world = {{0, 0, 0}, {1, 2, 3}};
-    std::vector<scalar_type> world_input(world.count());
-    std::iota(world_input.begin(), world_input.end(), 1.0);
-
-    std::vector<box3d<>> boxes = [&]()->std::vector<box3d<>>{
-            if (num_ranks == 1){
-                return heffte::split_world(world, std::array<int, 3>{1, 1, 1});
-            }else if (num_ranks == 2){
-                return heffte::split_world(world, std::array<int, 3>{2, 1, 1});
-            }else{
-                return heffte::split_world(world, std::array<int, 3>{1, 2, 2});
-            }
-        }();
-    assert(boxes.size() == static_cast<size_t>(num_ranks));
-    auto local_input = input_maker<backend_tag, scalar_type>::select(world, boxes[me], world_input);
-    auto reference_inv = get_subbox(world, boxes[me], world_input);
-
-    for(auto const options : make_all_options<backend_tag>()){
-        if (not options.use_pencils) continue;
-        heffte::rtransform<backend_tag> trans_cos(boxes[me], boxes[me], comm, options);
-        tvector forward(trans_cos.size_outbox());
-
-        trans_cos.forward(local_input.data(), forward.data());
-
-        tvector inverse(trans_cos.size_inbox());
-        trans_cos.backward(forward.data(), inverse.data(), heffte::scale::full);
-        tassert(approx(inverse, reference_inv, (std::is_same<scalar_type, float>::value) ? 0.001 : 1.0));
-    }
-}
-
 
 void perform_tests(MPI_Comm const comm){
     all_tests<> name("cosine transforms");
@@ -206,10 +171,10 @@ void perform_tests(MPI_Comm const comm){
     test_cosine_transform<backend::cufft_cos1, double>(comm);
     test_cosine_transform<backend::cufft_sin1, float>(comm);
     test_cosine_transform<backend::cufft_sin1, double>(comm);
-    test_inversion<backend::cufft_cos4, float>(comm);
-    test_inversion<backend::cufft_cos4, double>(comm);
-    test_inversion<backend::cufft_sin4, float>(comm);
-    test_inversion<backend::cufft_sin4, double>(comm);
+    test_cosine_transform<backend::cufft_cos4, float>(comm);
+    test_cosine_transform<backend::cufft_cos4, double>(comm);
+    test_cosine_transform<backend::cufft_sin4, float>(comm);
+    test_cosine_transform<backend::cufft_sin4, double>(comm);
     #ifdef Heffte_ENABLE_FFTW
     test_cross_reference<backend::fftw_cos, backend::cufft_cos, float, 10, 11, 12>(comm);
     test_cross_reference<backend::fftw_cos, backend::cufft_cos, double, 3, 8, 5>(comm);
