@@ -266,25 +266,24 @@ __global__ void sin_post_backward_kernel(int N, scalar_type const *fft_signal, s
 }
 
 // DCT-I (REDFT00)
-// even symmetry and periodicity; size 2N-1
-//(a b c d) -> (a 0 b 0 c 0  d  0 c 0 b 0)
+// even symmetry and periodicity; size 2N-2
+//(a b c d) -> (a b c d c b)
 template<typename scalar_type>
 __global__ void cos1_pre_forward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
 
     if(ind < N){
-        fft_signal[2*ind] = input[ind];
-        fft_signal[2*ind+1] = 0.0;
+        fft_signal[ind] = input[ind];
     }
 
-    if(ind > 0 && ind < N){
-        fft_signal[4*(N-1)-2*ind] = input[ind];
-        fft_signal[4*(N-1)-2*ind+1] = 0.0;
+    if(ind > 0 && ind < N - 1){
+        fft_signal[2*(N-1)- ind] = input[ind];
     }
 }
 
-//extract real parts
-//(c1 c2 c3) -> (c1.x c2.x c3.x)
+// extract real parts
+// there are (2N - 2) / 2 + 1 (= N) of those
+// (c1 c2 c3 c4) -> (c1.x c2.x c3.x c4.x)
 template<typename scalar_type>
 __global__ void cos1_post_forward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
@@ -297,8 +296,8 @@ __global__ void cos1_post_forward_kernel(int N, scalar_type const *fft_signal, s
 
 // IDCT-I backward kernel for DCT-I. The transform itself doesn't change, since (DCT-I)^-1=DCT-I.
 // However, the kernel has slight changes to adapt to the c2r transform.
-// set imaginary parts to zero; even symmetry
-// (a b c) -> (a,0 b,0 c,0 b,0 a,0)
+// set imaginary parts to zero, only input of size (2N - 2) / 2 + 1 (= N) required
+// (a b c d) -> (a,0 b,0 c,0 d,0)
 template<typename scalar_type>
 __global__ void cos1_pre_backward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
@@ -307,21 +306,15 @@ __global__ void cos1_pre_backward_kernel(int N, scalar_type const *input, scalar
         fft_signal[2*ind] = input[ind];
         fft_signal[2*ind+1] = 0.0;
     }
-    if(ind < N){
-        fft_signal[4*(N-1)-2*ind] = input[ind];
-        fft_signal[4*(N-1)-2*ind+1] = 0.0;
-    }
-
 }
 
-// Extract even elements
-// (a b c d e f) -> (a c e)
+// extract only our first N desired values
 template<typename scalar_type>
 __global__ void cos1_post_backward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
 
     if(ind < N){
-        result[ind] = fft_signal[2*ind];
+        result[ind] = fft_signal[ind];
     }
 
 }
