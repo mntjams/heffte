@@ -327,6 +327,7 @@ __global__ void cos1_post_backward_kernel(int N, scalar_type const *fft_signal, 
 }
 
 // DST-I (RODFT00)
+// (a b c d) -> (0 a b c d 0 -d -c -b -a); size 2N + 2
 template<typename scalar_type>
 __global__ void sin1_pre_forward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
@@ -339,6 +340,8 @@ __global__ void sin1_pre_forward_kernel(int N, scalar_type const *input, scalar_
         fft_signal[2*N+1-ind] = -input[ind];
     }
 }
+
+// (c1 c2 c3 c4 c5 c6) -> (-c2.y -c3.y -c4.y -c5.y)
 template<typename scalar_type>
 __global__ void sin1_post_forward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
@@ -346,6 +349,8 @@ __global__ void sin1_post_forward_kernel(int N, scalar_type const *fft_signal, s
         result[ind] = -fft_signal[2*(ind+1)+1];
     }
 }
+
+// (a b c d) -> (0,0 0,-a 0,-b 0,-c 0,-d 0,0)
 template<typename scalar_type>
 __global__ void sin1_pre_backward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
@@ -360,6 +365,8 @@ __global__ void sin1_pre_backward_kernel(int N, scalar_type const *input, scalar
         fft_signal[2*(ind+1)+1] = -input[ind];
     }
 }
+
+// (0 a b c d 0 -d -c -b -a) -> (a b c d)
 template<typename scalar_type>
 __global__ void sin1_post_backward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
