@@ -5,6 +5,7 @@
 */
 
 #include "heffte_backend_cuda.h"
+#include <math_constants.h>
 
 #ifdef Heffte_ENABLE_MAGMA
 #include <cublas.h>
@@ -376,39 +377,59 @@ __global__ void sin1_post_backward_kernel(int N, scalar_type const *fft_signal, 
 }
 
 // DCT-IV (REDFT11)
+// (a b c d) -> (a b c d -d -c -b -a -a -b -c -d d c b a); size 4N
 template<typename scalar_type>
 __global__ void cos4_pre_forward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
-    int j = blockIdx.x*BLK_X + threadIdx.x;
-    if (j < 8*N) {
-        if (j % 2 == 0) {
-            fft_signal[j] = 0.0;
-        } else {
-            int m = (j - 1) / 2;
-            if (m < N) fft_signal[j] = 0.5 * input[m];
-            else if (m < 2*N) fft_signal[j] = -0.5 * input[2*N - m - 1];
-            else if (m < 3*N) fft_signal[j] = -0.5 * input[m - 2*N];
-            else fft_signal[j] = 0.5 * input[4*N - m - 1];
-        }
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        fft_signal[ind] = input[ind];
+        fft_signal[N + ind] = -input[N - 1 - ind];
+        fft_signal[2*N + ind] = -input[ind];
+        fft_signal[3*N + ind] = input[N - 1 - ind];
     }
 }
+
+// extract 0.5 * Re(fft_signal[2k + 1] * e^(-i * (pi * (2k+1)) / 4N))
 template<typename scalar_type>
 __global__ void cos4_post_forward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
     if (ind < N) {
-        result[ind] = fft_signal[2*(2*ind+1)];
+        int bin = 2 * ind + 1;
+
+        scalar_type re = fft_signal[2 * bin];
+        scalar_type im = fft_signal[2 * bin + 1];
+
+        scalar_type theta = static_cast<scalar_type>(CUDART_PI) *
+            static_cast<scalar_type>(bin) / static_cast<scalar_type>(4 * N);
+        scalar_type c = cos(theta);
+        scalar_type s = sin(theta);
+
+        // (re + i*im) * (cos(theta) - i * sin(theta)
+        // The real part of that is re * cos(theta) + im * sin(theta)
+        result[ind] = static_cast<scalar_type>(0.5) * (re * c + im * s);
     }
 }
+
 template<typename scalar_type>
 __global__ void cos4_pre_backward_kernel(int N, scalar_type const *input, scalar_type *fft_signal){
-    int j = blockIdx.x*BLK_X + threadIdx.x;
-    if (j < 4*N + 1) {
-        fft_signal[2*j] = 0.0;
-        fft_signal[2*j+1] = 0.0;
-        if (j % 2 != 0) {
-            int k = (j - 1) / 2;
-            if (k < N) {
-                fft_signal[2*j] = input[k];
-            }
+    int ind = blockIdx.x*BLK_X + threadIdx.x;
+    if (ind < N) {
+        int bin = 2 * ind + 1;
+
+        scalar_type theta = CUDART_PI *
+            static_cast<scalar_type>(bin) / static_cast<scalar_type>(4 * N);
+        scalar_type c = cos(theta);
+        scalar_type s = sin(theta);
+
+        fft_signal[2 * bin] = 2 * input[ind] * c;
+        fft_signal[2 * bin + 1] = 2 * input[ind] * s;
+
+        fft_signal[2 * (bin - 1)] = 0.0;
+        fft_signal[2 * (bin - 1) + 1] = 0.0;
+
+        if (ind == N - 1) {
+            fft_signal[2 * (bin + 1)] = 0.0;
+            fft_signal[2 * (bin + 1) + 1] = 0.0;
         }
     }
 }
@@ -416,7 +437,7 @@ template<typename scalar_type>
 __global__ void cos4_post_backward_kernel(int N, scalar_type const *fft_signal, scalar_type *result){
     int ind = blockIdx.x*BLK_X + threadIdx.x;
     if (ind < N) {
-        result[ind] = fft_signal[2*ind+1];
+        result[ind] = fft_signal[ind];
     }
 }
 
@@ -721,7 +742,7 @@ void sin1_pre_pos_processor::post_backward(cudaStream_t stream, int length, prec
 template<typename precision>
 void cos4_pre_pos_processor::pre_forward(cudaStream_t stream, int length, precision const input[], precision fft_signal[]){
     dim3 threads( BLK_X, 1 );
-    dim3 grid( (8 * length + BLK_X-1)/BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
     cos4_pre_forward_kernel<<<grid, threads, 0, stream>>>(length, input, fft_signal);
 }
 template<typename precision>
@@ -733,7 +754,7 @@ void cos4_pre_pos_processor::post_forward(cudaStream_t stream, int length, std::
 template<typename precision>
 void cos4_pre_pos_processor::pre_backward(cudaStream_t stream, int length, precision const input[], std::complex<precision> fft_signal[]){
     dim3 threads( BLK_X, 1 );
-    dim3 grid( (4 * length + 1 + BLK_X-1)/BLK_X, 1 );
+    dim3 grid( (length + BLK_X-1)/BLK_X, 1 );
     cos4_pre_backward_kernel<<<grid, threads, 0, stream>>>(length, input, reinterpret_cast<precision*>(fft_signal));
 }
 template<typename precision>

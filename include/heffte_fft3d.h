@@ -635,7 +635,6 @@ private:
         if (not backend::uses_fft_types<backend_tag>::value){
             if (std::is_same<backend_tag, backend::fftw_cos>::value or
                 std::is_same<backend_tag, backend::fftw_sin>::value or
-                std::is_same<backend_tag, backend::cufft_cos4>::value or
                 std::is_same<backend_tag, backend::cufft_sin4>::value) {
                 scale_factor /= 8.0;
             }else if (std::is_same<backend_tag, backend::fftw_cos1>::value) {
