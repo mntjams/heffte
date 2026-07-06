@@ -634,8 +634,7 @@ private:
 
         if (not backend::uses_fft_types<backend_tag>::value){
             if (std::is_same<backend_tag, backend::fftw_cos>::value or
-                std::is_same<backend_tag, backend::fftw_sin>::value or
-                std::is_same<backend_tag, backend::cufft_sin4>::value) {
+                std::is_same<backend_tag, backend::fftw_sin>::value) {
                 scale_factor /= 8.0;
             }else if (std::is_same<backend_tag, backend::fftw_cos1>::value) {
                 scale_factor = 1.0 / (8.0 * (plan.fft_sizes[0] - 1) * (plan.fft_sizes[1] - 1) * (plan.fft_sizes[2] - 1));
