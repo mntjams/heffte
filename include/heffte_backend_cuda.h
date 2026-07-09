@@ -219,7 +219,7 @@ namespace cuda {
         static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
         //! \brief Computes the length of the extended signal.
         static int compute_extended_length(int length){
-            return 8 * length;
+            return 4 * length;
         }
     };
 
@@ -242,7 +242,7 @@ namespace cuda {
         static void post_backward(cudaStream_t, int length, precision const fft_result[], precision result[]);
         //! \brief Computes the length of the extended signal.
         static int compute_extended_length(int length){
-            return 8 * length;
+            return 4 * length;
         }
     };
 
